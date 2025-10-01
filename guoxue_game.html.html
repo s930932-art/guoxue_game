@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>國學分類小遊戲</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; }
+    h1 { color: #333; }
+    #game, #result { display: none; margin-top: 20px; }
+    #question { font-size: 24px; margin: 20px; }
+    .options { display: flex; justify-content: center; flex-wrap: wrap; margin: 20px; }
+    .option {
+      padding: 15px 20px;
+      margin: 10px;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      cursor: pointer;
+      font-size: 20px;
+      min-width: 100px;
+      transition: 0.2s;
+    }
+    .option:hover { background: #dbeafe; }
+    #scoreboard, #timer { font-size: 22px; margin: 10px; color: #444; }
+    #timer { color: #b91c1c; }
+    #startBtn, #restartBtn {
+      margin-top: 30px;
+      padding: 10px 20px;
+      font-size: 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      border: none;
+      background: #4CAF50;
+      color: white;
+    }
+    #restartBtn { background: #2196F3; }
+    table { margin: 20px auto; border-collapse: collapse; width: 90%; }
+    th, td { border: 1px solid #999; padding: 8px; font-size: 18px; }
+    th { background-color: #eee; }
+    #titleRecord { font-size: 20px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>國學分類小遊戲</h1>
+  <button id="startBtn">開始遊戲</button>
+
+  <div id="game">
+    <div id="timer">剩餘時間：<span id="time">30</span> 秒</div>
+    <div id="scoreboard">分數：0</div>
+    <div id="question">題目出現中...</div>
+    <div class="options">
+      <div class="option" data-choice="經">經</div>
+      <div class="option" data-choice="史">史</div>
+      <div class="option" data-choice="子">子</div>
+      <div class="option" data-choice="集">集</div>
+    </div>
+  </div>
+
+  <div id="result">
+    <h2>遊戲結束！</h2>
+    <p>你的總分是：<span id="finalScore"></span></p>
+    <p id="titleRecord"></p>
+    <div id="recordTable"></div>
+    <button id="restartBtn">重新開始</button>
+  </div>
+
+  <script>
+    const startBtn = document.getElementById("startBtn");
+    const restartBtn = document.getElementById("restartBtn");
+    const game = document.getElementById("game");
+    const result = document.getElementById("result");
+    const questionEl = document.getElementById("question");
+    const options = document.querySelectorAll(".option");
+    const scoreEl = document.getElementById("scoreboard");
+    const timeEl = document.getElementById("time");
+    const finalScoreEl = document.getElementById("finalScore");
+    const recordTableDiv = document.getElementById("recordTable");
+    const titleRecord = document.getElementById("titleRecord");
+
+    const explanations = {
+      '《詩經》': '《詩經》：儒家最早的詩歌總集，十三經之一', 
+      '《春秋》': '《春秋》：孔子編年體歷史書，屬經典之一。',
+      '《禮記》': '《禮記》：記錄禮儀制度及倫理思想的經典。十三經之一', 
+      '《孟子》': '《孟子》：孟子思想集，儒家經典。十三經之一', 
+      '《尚書》': '《尚書》：古代歷史文書的彙編，十三經之一',
+      '《周禮》': '《周禮》：描述周代官制與禮制的經典。十三經之一',
+      '《易經》': '《易經》：卜筮之書，兼具哲理與象數理論。十三經之一',
+      '《儀禮》': '《儀禮》：周代禮儀規範彙編。十三經之一',
+      '《公羊傳》': '《公羊傳》：對《春秋》的注解與解釋。十三經之一',
+      '《穀梁傳》': '《穀梁傳》：對《春秋》的注解與解釋。十三經之一',
+      '《論語》': '《論語》：記載孔子及其弟子言行的經典。十三經之一',
+      '《孝經》': '《孝經》：論述孝道的經典。十三經之一',
+      '《左傳》': '《左傳》：註解《春秋》，含歷史事件與評注。十三經之一', 
+      '《爾雅》': '《爾雅》：古代字詞釋義書，十三經之一', 
+      '《說文解字》': '《說文解字》：解釋漢字字形與義。小學類皆歸經部',
+      '《史記》': '《史記》：司馬遷撰，記述上古至漢武帝時期的歷史。',
+      '《漢書》': '《漢書》：班固撰，記述西漢歷史。',
+      '《資治通鑑》': '《資治通鑑》：司馬光編年體通史，用於治國借鑑。',
+      '《後漢書》': '《後漢書》：班彪、范曄等撰，記述東漢歷史。',
+      '《晉書》': '《晉書》：描述晉代歷史的重要史書。',
+      '《洛陽伽籃記》': '《洛陽伽籃記》：集歷史、地理、佛教、文學、建築於一身的著作。',
+      '《水經注》': '《水經注》：地理水系注釋書，也含歷史資料。',
+      '《孫子兵法》': '《孫子兵法》：兵家類，戰國兵法著作，講兵法策略。',
+      '《莊子》': '《莊子》：道家思想集，寓言與哲理兼具。',
+      '《韓非子》': '《韓非子》：法家思想集，強調法治與權術。',
+      '《荀子》': '《荀子》：儒家思想集，重視禮法與性惡論。',
+      '《墨子》': '《墨子》：墨家思想集，強調兼愛與非攻。',
+      '《淮南子》': '《淮南子》：雜家哲學與自然科學著作。',
+      '《山海經》': '《山海經》：小說家類，古代地理與神話集，兼有民俗傳說。',
+      '《世說新語》': '《世說新語》：小說家類，魏晉名士軼事集。',
+      '《楚辭》': '《楚辭》：戰國楚地詩歌集，以騷體為主。',
+      '《文選》': '《文選》：文人詩文選集，漢魏六朝文學代表。',
+      '《陶淵明集》': '《陶淵明集》：陶淵明詩文集，田園詩代表。',
+      '《唐詩三百首》': '《唐詩三百首》：唐代經典詩集。',
+      '《全唐詩》': '《全唐詩》：唐代詩全集，包含各家作品。',
+      '《宋詞三百首》': '《宋詞三百首》：宋代詞選集。',
+      '《元曲選》': '《元曲選》：元代曲選集，含雜劇與散曲。'
+    };
+
+    const questions = [
+      { text: '《詩經》', answer: '經' }, { text: '《春秋》', answer: '經' },
+      { text: '《禮記》', answer: '經' }, { text: '《孟子》', answer: '經' },
+      { text: '《尚書》', answer: '經' }, { text: '《周禮》', answer: '經' },
+      { text: '《易經》', answer: '經' }, { text: '《儀禮》', answer: '經' },
+      { text: '《公羊傳》', answer: '經' }, { text: '《穀梁傳》', answer: '經' },
+      { text: '《論語》', answer: '經' }, { text: '《孝經》', answer: '經' },
+      { text: '《左傳》', answer: '經' }, { text: '《爾雅》', answer: '經' },
+      { text: '《說文解字》', answer: '經' }, { text: '《史記》', answer: '史' },
+      { text: '《漢書》', answer: '史' }, { text: '《資治通鑑》', answer: '史' },
+      { text: '《後漢書》', answer: '史' }, { text: '《晉書》', answer: '史' },
+      { text: '《洛陽伽籃記》', answer: '史' }, { text: '《水經注》', answer: '史' },
+      { text: '《孫子兵法》', answer: '子' }, { text: '《莊子》', answer: '子' },
+      { text: '《韓非子》', answer: '子' }, { text: '《荀子》', answer: '子' },
+      { text: '《墨子》', answer: '子' }, { text: '《淮南子》', answer: '子' },
+      { text: '《山海經》', answer: '子' }, { text: '《世說新語》', answer: '子' },
+      { text: '《楚辭》', answer: '集' }, { text: '《文選》', answer: '集' },
+      { text: '《陶淵明集》', answer: '集' }, { text: '《唐詩三百首》', answer: '集' },
+      { text: '《全唐詩》', answer: '集' }, { text: '《宋詞三百首》', answer: '集' },
+      { text: '《元曲選》', answer: '集' }
+    ];
+
+    let availableQuestions = [];
+    let currentQuestion = null;
+    let score = 0;
+    let timeLeft = 30;
+    let timer;
+    let wrongRecords = [];
+
+    function shuffle(array) { return array.sort(() => Math.random() - 0.5); }
+
+    function getTitle(score) {
+      if(score <= 5) return "書卷新生";
+      if(score <= 10) return "學堂小秀才";
+      if(score <= 15) return "經史大家";
+      return "國學宗師";
+    }
+
+    function startGame() {
+      score = 0;
+      timeLeft = 30;
+      wrongRecords = [];
+      availableQuestions = shuffle([...questions]);
+      scoreEl.textContent = `分數：${score}`;
+      timeEl.textContent = timeLeft;
+      recordTableDiv.innerHTML = '';
+      titleRecord.textContent = '';
+      startBtn.style.display = "none";
+      result.style.display = "none";
+      game.style.display = "block";
+      nextQuestion();
+      startTimer();
+    }
+
+    function nextQuestion() {
+      if (availableQuestions.length === 0) {
+        endGame();
+        return;
+      }
+      currentQuestion = availableQuestions.pop();
+      questionEl.textContent = `請問「${currentQuestion.text}」屬於哪一類？`;
+    }
+
+    function checkAnswer(choice) {
+      if (!currentQuestion) return;
+      if (choice === currentQuestion.answer) {
+        score++;
+        scoreEl.textContent = `分數：${score}`;
+      } else {
+        wrongRecords.push({
+          text: currentQuestion.text,
+          selected: choice,
+          correct: currentQuestion.answer,
+          explanation: explanations[currentQuestion.text]
+        });
+      }
+      nextQuestion();
+    }
+
+    function startTimer() {
+      clearInterval(timer);
+      timer = setInterval(() => {
+        timeLeft--;
+        timeEl.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(timer);
+          endGame();
+        }
+      }, 1000);
+    }
+
+    function endGame() {
+      game.style.display = "none";
+      result.style.display = "block";
+      finalScoreEl.textContent = score;
+      titleRecord.textContent = `稱號：${getTitle(score)}`;
+
+      if (wrongRecords.length === 0) {
+        recordTableDiv.innerHTML = "<p>恭喜全部答對！</p>";
+      } else {
+        let tableHTML = `<table>
+          <tr><th>題目</th><th>你的答案</th><th>正確答案</th><th>解釋</th></tr>`;
+        wrongRecords.forEach(r => {
+          tableHTML += `<tr>
+            <td>${r.text}</td>
+            <td>${r.selected}</td>
+            <td>${r.correct}</td>
+            <td>${r.explanation}</td>
+          </tr>`;
+        });
+        tableHTML += `</table>`;
+        recordTableDiv.innerHTML = tableHTML;
+      }
+    }
+
+    options.forEach(opt => {
+      opt.addEventListener("click", () => checkAnswer(opt.dataset.choice));
+    });
+
+    startBtn.onclick = startGame;
+    restartBtn.onclick = startGame;
+  </script>
+</body>
+</html>
